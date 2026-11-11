@@ -146,6 +146,9 @@ h2{font-family:var(--title);font-weight:700;font-size:18px;letter-spacing:.06em}
 .rk .lb{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rk .lb small{font:500 12.5px var(--num);color:var(--ink3);margin-left:6px;letter-spacing:.03em}
 .rk .ct{font:600 17px/1 var(--num);font-variant-numeric:tabular-nums}
+.rk .ct small{font:400 12px var(--txt);color:var(--ink2);margin-left:3px}
+.rk-note{padding-top:8px;font-size:13px;color:var(--ink2)}
+.seg button{padding-inline:11px}
 .rk .tr{grid-column:1/-1;height:3px;background:var(--rule);margin-top:5px;border-radius:1px;overflow:hidden}
 .rk .tr i{display:block;height:100%;background:var(--ink2)}
 .rk.sel .tr i{background:var(--hot)}
@@ -153,8 +156,8 @@ h2{font-family:var(--title);font-weight:700;font-size:18px;letter-spacing:.06em}
 .filter-note{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--ink2);padding-bottom:4px}
 .yh{font:600 20px/1 var(--num);letter-spacing:.02em;padding:18px 0 8px;display:flex;justify-content:space-between;align-items:baseline}
 .yh small{font:400 13px var(--txt);color:var(--ink2);letter-spacing:0}
-.fl{display:grid;grid-template-columns:48px minmax(0,1fr) auto;column-gap:10px;padding:10px 0;border-top:1px solid var(--rule)}
-.fl-date b{display:block;font:600 17px/1.2 var(--num);letter-spacing:.01em}
+.fl{display:grid;grid-template-columns:52px minmax(0,1fr) auto;column-gap:10px;padding:10px 0;border-top:1px solid var(--rule)}
+.fl-date b{display:block;font:600 17px/1.2 var(--num);letter-spacing:.01em;white-space:nowrap}
 .fl-date span{display:block;font-size:12px;color:var(--ink3)}
 .fl-codes{display:flex;align-items:center;gap:8px;font:600 17px/1.2 var(--num);letter-spacing:.04em}
 .fl-codes svg{width:22px;height:8px;flex:none;stroke:var(--ink3);fill:none;stroke-width:1.2}
@@ -261,6 +264,8 @@ textarea{resize:vertical;min-height:92px;display:block}
           <button role="tab" aria-selected="true" data-tab="route">航线</button>
           <button role="tab" aria-selected="false" data-tab="ap">机场</button>
           <button role="tab" aria-selected="false" data-tab="airline">航司</button>
+          <button role="tab" aria-selected="false" data-tab="dist">距离</button>
+          <button role="tab" aria-selected="false" data-tab="ac" id="tab-ac" hidden>机型</button>
         </div>
       </div>
       <ol id="rank-list"></ol>
@@ -312,7 +317,8 @@ textarea{resize:vertical;min-height:92px;display:block}
       <div class="grid2">
         <div class="field"><label for="m-date">出发日期</label><input type="date" id="m-date"></div>
         <div class="field"><label for="m-fno">航班号</label><input id="m-fno" placeholder="CA1234" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
-        <div class="field full"><label for="m-airline">航空公司</label><input id="m-airline" placeholder="按航班号自动填写，可以改" autocomplete="off"></div>
+        <div class="field"><label for="m-airline">航空公司</label><input id="m-airline" placeholder="自动填写，可改" autocomplete="off"></div>
+        <div class="field"><label for="m-ac">机型（选填）</label><input id="m-ac" placeholder="例如 A320" autocomplete="off" spellcheck="false"></div>
         <div class="field full"><label for="m-dep">出发机场</label><input id="m-dep" placeholder="三字码或城市，例如 PEK、厦门" autocomplete="off" spellcheck="false"><div class="sug" id="m-dep-sug" hidden></div></div>
         <div class="field full"><label for="m-arr">到达机场</label><input id="m-arr" placeholder="三字码或城市，例如 DFW、东京" autocomplete="off" spellcheck="false"><div class="sug" id="m-arr-sug" hidden></div></div>
         <div class="field"><label for="m-dept">起飞时间（当地）</label><input type="time" id="m-dept"></div>
@@ -405,9 +411,10 @@ function haversine(a,b){
   return 2*R*Math.asin(Math.sqrt(h));
 }
 var HM=/^\d{2}:\d{2}$/;
+function normAc(v){ return String(v==null?'':v).replace(/\s+/g,' ').replace(/([\u4e00-\u9fff]) (?=[A-Za-z0-9])/g,'$1').trim().toUpperCase().slice(0,30); }
 function enrich(id,d){
   var f={id:id,date:String(d.date||''),fno:String(d.fno||''),airline:String(d.airline||''),dep:String(d.dep||'').toUpperCase(),arr:String(d.arr||'').toUpperCase(),
-    depT:String(d.depT||''),arrT:String(d.arrT||''),plus:Math.max(0,Math.min(3,+d.plus||0)),depTerm:String(d.depTerm||''),arrTerm:String(d.arrTerm||''),depName:String(d.depName||''),arrName:String(d.arrName||'')};
+    depT:String(d.depT||''),arrT:String(d.arrT||''),plus:Math.max(0,Math.min(3,+d.plus||0)),depTerm:String(d.depTerm||''),arrTerm:String(d.arrTerm||''),depName:String(d.depName||''),arrName:String(d.arrName||''),ac:normAc(d.ac)};
   if(!/^\d{4}-\d{2}-\d{2}$/.test(f.date)||isNaN(Date.parse(f.date+'T00:00:00Z'))) return null;
   var A=AP.get(f.dep),B=AP.get(f.arr),min=0,ts=Date.parse(f.date+'T00:00:00Z');
   f.km=A&&B?haversine(A,B):0;
@@ -459,7 +466,7 @@ function saveFile(filename,text,mime){
   return Promise.resolve(true);
 }
 function aggregate(list){
-  var routes=new Map(),aps=new Map(),cities=new Map(),airlines=new Map(),ccs=new Set(),conts=new Set(),citySet=new Set(),km=0,min=0,longest=null;
+  var routes=new Map(),aps=new Map(),cities=new Map(),airlines=new Map(),ccs=new Set(),conts=new Set(),citySet=new Set(),acs=new Map(),acMissing=0,km=0,min=0,longest=null;
   list.forEach(function(f){
     km+=f.km; min+=f.min; if(f.km&&(!longest||f.km>longest.km)) longest=f;
     var rk=routeKey(f.dep,f.arr),r=routes.get(rk);
@@ -467,8 +474,9 @@ function aggregate(list){
     [f.dep,f.arr].forEach(function(c,i){ var a=aps.get(c); if(!a){ a={id:c,n:0,dep:0,arr:0,flights:[]}; aps.set(c,a); } a.n++; if(i) a.arr++; else a.dep++; a.flights.push(f); var ap=AP.get(c); if(ap){ ccs.add(ap.cc); if(ap.ct) conts.add(ap.ct); } citySet.add(apCity(c)); });
     var ck=cityKey(f); cities.set(ck,(cities.get(ck)||0)+1);
     var al=f.airline||'未填航司'; airlines.set(al,(airlines.get(al)||0)+1);
+    if(f.ac) acs.set(f.ac,(acs.get(f.ac)||0)+1); else acMissing++;
   });
-  return {list:list,n:list.length,km:km,min:min,longest:longest,routes:routes,aps:aps,cities:cities,airlines:airlines,ccs:ccs,conts:conts,citySet:citySet};
+  return {list:list,n:list.length,km:km,min:min,longest:longest,routes:routes,aps:aps,cities:cities,airlines:airlines,ccs:ccs,conts:conts,citySet:citySet,acs:acs,acMissing:acMissing};
 }
 function matchFocus(f){
   var fo=S.focus; if(!fo) return true;
@@ -692,24 +700,29 @@ function renderStats(){
   if(!v.n) return;
   var add=function(k,val){ dl.append(el('dt',{text:k}),el('dd',{text:val})); };
   add('大洲',v.conts.size+' 个'); add('国家和地区',v.ccs.size+' 个'); add('城市',v.citySet.size+' 个'); add('机场',v.aps.size+' 个'); add('航空公司',v.airlines.size+' 家');
-  if(v.longest) dl.append(el('dt',{text:'最长一程'}),el('dd',null,apName(v.longest.dep)+' 飞 '+apName(v.longest.arr)+'，',el('span',{class:'nw',text:NF.format(Math.round(v.longest.km))+' 公里'})));
+  if(v.acs.size) add('机型',v.acs.size+' 种');
 }
 
 /* ---------- ranking ---------- */
 function renderRank(){
   var v=VIEW,rows=[],list=$('#rank-list'),more=$('#rank-more'); list.textContent='';
+  var hasAc=!!(ALL&&ALL.acs.size); $('#tab-ac').hidden=!hasAc;
+  if(!hasAc&&S.rankTab==='ac'){ S.rankTab='route'; Array.prototype.forEach.call($('#rank-tabs').children,function(x){ x.setAttribute('aria-selected',x.dataset.tab==='route'?'true':'false'); }); }
   if(S.rankTab==='route') v.cities.forEach(function(n,k){ rows.push({label:k.replace('|',' – '),n:n,focus:{type:'city',key:k}}); });
   else if(S.rankTab==='ap') v.aps.forEach(function(a){ rows.push({label:apName(a.id),sub:a.id,n:a.n,focus:{type:'ap',id:a.id}}); });
+  else if(S.rankTab==='dist') v.routes.forEach(function(r){ var km=r.flights[0].km,p=r.key.split('-'); if(km) rows.push({label:apName(p[0])+' – '+apName(p[1]),sub:r.n+' 次',n:km,val:NF.format(Math.round(km)),unit:'公里',focus:{type:'route',key:r.key}}); });
+  else if(S.rankTab==='ac') v.acs.forEach(function(n,k){ rows.push({label:k,n:n}); });
   else v.airlines.forEach(function(n,k){ rows.push({label:k,n:n}); });
   rows.sort(function(a,b){ return b.n-a.n||a.label.localeCompare(b.label,'zh'); });
   var max=rows.length?rows[0].n:1, lim=S.rankAll?rows.length:6;
   rows.slice(0,lim).forEach(function(r){
     var sel=!!(r.focus&&S.focus&&S.focus.type===r.focus.type&&(S.focus.key||S.focus.id)===(r.focus.key||r.focus.id));
-    var inner=[el('span',{class:'lb'},r.label,r.sub?el('small',{text:r.sub}):null),el('span',{class:'ct',text:r.n}),el('span',{class:'tr'},el('i',{style:'width:'+(r.n/max*100)+'%'}))];
+    var inner=[el('span',{class:'lb'},r.label,r.sub?el('small',{text:r.sub}):null),el('span',{class:'ct'},r.val!=null?r.val:r.n,r.unit?el('small',{text:r.unit}):null),el('span',{class:'tr'},el('i',{style:'width:'+(r.n/max*100)+'%'}))];
     var node=r.focus?el('button',{class:'rk'+(sel?' sel':''),'aria-pressed':sel?'true':'false',onclick:function(){ setFocus(sel?null:r.focus); if(!sel&&window.innerWidth<980) $('#map').scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'}); }},inner):el('div',{class:'rk'},inner);
     list.append(el('li',null,node));
   });
   if(!rows.length) list.append(el('li',{class:'empty',text:'还没有可以排的数据。'}));
+  if(S.rankTab==='ac'&&v.acMissing) list.append(el('li',{class:'rk-note',text:'另有 '+v.acMissing+' 条没填机型'}));
   more.hidden=rows.length<=6; more.textContent=S.rankAll?'只看前 6 个':'显示全部 '+rows.length+' 个';
 }
 
@@ -725,7 +738,7 @@ function renderLog(){
   var year=null,cnt=new Map(); list.forEach(function(f){ cnt.set(f.year,(cnt.get(f.year)||0)+1); });
   list.forEach(function(f){
     if(f.year!==year){ year=f.year; box.append(el('div',{class:'yh'},String(year),el('small',{text:cnt.get(year)+' 次'}))); }
-    var meta=el('div',{class:'fl-meta'},el('span',{class:'fno',text:f.fno}),f.airline?el('span',{text:f.airline}):null,
+    var meta=el('div',{class:'fl-meta'},el('span',{class:'fno',text:f.fno}),f.airline?el('span',{text:f.airline}):null,f.ac?el('span',{text:f.ac}):null,
       (f.depT||f.arrT)?el('span',{class:'tm',text:(f.depT||'--:--')+' – '+(f.arrT||'--:--')+(f.plus?' +'+f.plus:'')}):null);
     if(S.owner&&db&&S.editing){ var del=el('button',{class:'del',text:'删除',onclick:function(){
         if(!del.classList.contains('sure')){ del.classList.add('sure'); del.textContent='确认删除'; setTimeout(function(){ del.classList.remove('sure'); del.textContent='删除'; },4000); return; }
@@ -763,7 +776,7 @@ function startPlay(){
     S.play.i++;
     if(S.play.i>=n){ S.play.timer=setTimeout(stopPlay,900); return; }
     var f=S.flights[S.play.i]; VIEW=aggregate(subset());
-    renderMap(); renderTimeline(); renderStats();
+    renderMap(); renderTimeline(); renderStats(); renderRank();
     pd.querySelector('b').textContent=f.date; pd.querySelector('span').textContent=f.fno+'  '+apName(f.dep)+' 飞 '+apName(f.arr);
     var arc=ARCS.get(f.id);
     if(arc&&!reduced){
@@ -789,13 +802,14 @@ function normItem(o){
   var t=function(s){ var m=String(s==null?'':s).trim().match(/^(\d{1,2})[:：](\d{2})/); return m&&+m[1]<24&&+m[2]<60?('0'+m[1]).slice(-2)+':'+m[2]:''; };
   var s=function(v,n){ return String(v==null?'':v).trim().slice(0,n||40); };
   var f={date:s(o.date,10),fno:s(o.fno,10).toUpperCase().replace(/[^A-Z0-9]/g,''),airline:s(o.airline),dep:s(o.dep,3).toUpperCase(),arr:s(o.arr,3).toUpperCase(),
-    depT:t(o.depT),arrT:t(o.arrT),plus:Math.max(0,Math.min(2,parseInt(o.plus,10)||0)),depTerm:s(o.depTerm,8),arrTerm:s(o.arrTerm,8),depName:s(o.depName,24),arrName:s(o.arrName,24)};
+    depT:t(o.depT),arrT:t(o.arrT),plus:Math.max(0,Math.min(2,parseInt(o.plus,10)||0)),depTerm:s(o.depTerm,8),arrTerm:s(o.arrTerm,8),depName:s(o.depName,24),arrName:s(o.arrName,24),ac:normAc(o.ac!=null?o.ac:(o.aircraft!=null?o.aircraft:o['机型']))};
+  f.given={airline:!!f.airline,plus:o.plus!=null&&String(o.plus).trim()!==''};
   if(!f.airline) f.airline=airlineOf(f.fno);
   f.problem=!/^\d{4}-\d{2}-\d{2}$/.test(f.date)||isNaN(Date.parse(f.date+'T00:00:00Z'))?'日期看不清':
     !AP.has(f.dep)?'出发机场“'+(f.depName||f.dep||'空')+'”不认识':!AP.has(f.arr)?'到达机场“'+(f.arrName||f.arr||'空')+'”不认识':f.dep===f.arr?'出发和到达是同一个机场':'';
   return f;
 }
-function docBody(f,src){ return {date:f.date,fno:f.fno,airline:f.airline,dep:f.dep,arr:f.arr,depT:f.depT,arrT:f.arrT,plus:f.plus,depTerm:f.depTerm,arrTerm:f.arrTerm,depName:f.depName,arrName:f.arrName,src:src,added:new Date().toISOString()}; }
+function docBody(f,src){ return {date:f.date,fno:f.fno,airline:f.airline,dep:f.dep,arr:f.arr,depT:f.depT,arrT:f.arrT,plus:f.plus,depTerm:f.depTerm,arrTerm:f.arrTerm,depName:f.depName,arrName:f.arrName,ac:f.ac||'',src:src,added:new Date().toISOString()}; }
 function saveFlights(items,src){
   return db.collection('flights').setMany(items.map(function(f){ return {id:flightId(f),body:docBody(f,src)}; })).then(function(){ return items.length; },function(e){ var err=new Error('write'); err.done=0; err.code=e&&e.code; throw err; });
 }
@@ -808,26 +822,31 @@ function setTab(name){
 }
 function renderCands(){
   var box=$('#imp-results'); box.textContent='';
-  var have=new Set(S.flights.map(function(f){ return f.id; }));
+  var have=new Map(S.flights.map(function(f){ return [f.id,f]; })),KEEP=['depT','arrT','depTerm','arrTerm','depName','arrName','ac'];
   cands.forEach(function(c){
-    c.dup=have.has(flightId(c)); if(c.pick===undefined) c.pick=!c.problem&&!c.dup;
+    var old=have.get(flightId(c)); c.dup=!!old; c.changed=false;
+    if(old){
+      if(!c.merged){ KEEP.forEach(function(k){ if(!c[k]) c[k]=old[k]; }); if(!c.given.airline&&old.airline) c.airline=old.airline; if(!c.given.plus) c.plus=old.plus; c.merged=true; }
+      c.changed=c.arr!==old.arr||c.airline!==old.airline||c.plus!==old.plus||KEEP.some(function(k){ return c[k]!==old[k]; });
+    }
+    if(c.pick===undefined) c.pick=!c.problem&&(!c.dup||c.changed);
     var cb=el('input',{type:'checkbox','aria-label':'加入 '+c.date+' '+c.fno,disabled:!!c.problem,onchange:function(){ c.pick=cb.checked; updateAdd(); }}); cb.checked=c.pick&&!c.problem;
     box.append(el('label',{class:'cand'},cb,el('div',null,
       el('b',{text:c.date+'  '+c.fno+'  '+c.dep+' – '+c.arr}),
-      el('p',{text:(c.depName||apDefaultName(c.dep))+' '+c.depT+' 至 '+(c.arrName||apDefaultName(c.arr))+' '+c.arrT+(c.plus?' +'+c.plus:'')+(c.airline?'，'+c.airline:'')}),
-      c.problem?el('p',{class:'tag bad',text:c.problem+'，可以改用手动填写'}):c.dup?el('p',{class:'tag',text:'已经有这条了，勾选会覆盖原记录'}):null)));
+      el('p',{text:(c.depName||apDefaultName(c.dep))+' '+c.depT+' 至 '+(c.arrName||apDefaultName(c.arr))+' '+c.arrT+(c.plus?' +'+c.plus:'')+(c.airline?'，'+c.airline:'')+(c.ac?'，'+c.ac:'')}),
+      c.problem?el('p',{class:'tag bad',text:c.problem+'，可以改用手动填写'}):c.dup?el('p',{class:'tag',text:c.changed?'已有这条，加入后会更新它的内容':'已经有这条了，内容相同'}):null)));
   });
   updateAdd();
 }
 function updateAdd(){ var n=cands.filter(function(c){ return c.pick&&!c.problem; }).length,b=$('#imp-add'); b.hidden=!cands.length; b.disabled=!n; b.textContent=n?'加入 '+n+' 条航班':'没有可加入的航班'; }
 function promptText(){
   return '请从我发的截图或文字里找出每一段航班，只回复一个 JSON 数组，不要任何其他文字。\n'+
-    '每个元素的格式：{"date":"YYYY-MM-DD","fno":"CA1234","airline":"中国国航","dep":"PEK","depName":"北京首都","depTerm":"T3","depT":"08:20","arr":"XMN","arrName":"厦门高崎","arrTerm":"T4","arrT":"11:05","plus":0}\n'+
+    '每个元素的格式：{"date":"YYYY-MM-DD","fno":"CA1234","airline":"中国国航","dep":"PEK","depName":"北京首都","depTerm":"T3","depT":"08:20","arr":"XMN","arrName":"厦门高崎","arrTerm":"T4","arrT":"11:05","plus":0,"ac":"空客A320"}\n'+
     '规则：\n- date 是出发地当地的出发日期。截图里年份常单独写在“月-日”下面，要合成完整日期；同一组里没有日期标签的航班沿用上一张卡片的日期；完全没有年份时用 '+new Date().getFullYear()+' 年。\n'+
     '- dep 和 arr 必须是机场的 IATA 三字码，按机场名称判断，例如北京首都 PEK、北京大兴 PKX、上海虹桥 SHA、上海浦东 PVG、东京羽田 HND、达拉斯沃思堡 DFW、达拉斯爱田 DAL。\n'+
     '- depName 和 arrName 用中文的“城市加机场简称”，不带航站楼；航站楼写进 depTerm 和 arrTerm，没有就留空字符串。\n'+
     '- depT 和 arrT 是 24 小时制的当地时间 HH:MM。到达时间后面标了 +1 或 +2 时，plus 填 1 或 2，否则填 0。\n'+
-    '- airline 用中文航空公司名，fno 是去掉空格的航班号。\n- 同一个航班只输出一次；日期、航班号或起降机场看不清的不要输出。\n- 一个航班都没找到时回复 []。';
+    '- airline 用中文航空公司名，fno 是去掉空格的航班号。ac 是机型（例如 空客A320、波音737-800），看不到就填空字符串。\n- 同一个航班只输出一次；日期、航班号或起降机场看不清的不要输出。\n- 一个航班都没找到时回复 []。';
 }
 function copyPrompt(){
   var t=promptText(),done=function(){ toast('提示词已复制'); },fail=function(){ var ta=$('#imp-text'); ta.value=t; ta.select(); try{ document.execCommand('copy'); ta.value=''; done(); }catch(e){ toast('没能自动复制，文字已放进输入框，请手动复制。'); } };
@@ -841,7 +860,7 @@ function parseCSV(text){
   row.push(cur); if(row.some(function(x){ return x!==''; })) rows.push(row);
   if(rows.length<2) return [];
   var H={'日期':'date','出发日期':'date','date':'date','航班号':'fno','fno':'fno','航空公司':'airline','airline':'airline','出发机场代码':'dep','dep':'dep','出发机场':'depName','depName':'depName','出发航站楼':'depTerm','depTerm':'depTerm','起飞时间':'depT','出发时间':'depT','depT':'depT',
-    '到达机场代码':'arr','arr':'arr','到达机场':'arrName','arrName':'arrName','到达航站楼':'arrTerm','arrTerm':'arrTerm','到达时间':'arrT','arrT':'arrT','到达跨天':'plus','plus':'plus'};
+    '到达机场代码':'arr','arr':'arr','到达机场':'arrName','arrName':'arrName','到达航站楼':'arrTerm','arrTerm':'arrTerm','到达时间':'arrT','arrT':'arrT','到达跨天':'plus','plus':'plus','机型':'ac','ac':'ac','aircraft':'ac'};
   var keys=rows[0].map(function(h){ return H[h.trim()]||null; });
   return rows.slice(1).map(function(r){ var o={}; keys.forEach(function(k,j){ if(k) o[k]=r[j]; }); return o; });
 }
@@ -898,24 +917,24 @@ function bindAP(inputId){
 }
 function addManual(){
   var err=$('#m-err'),v=function(id){ return $('#'+id).value.trim(); };
-  var f=normItem({date:v('m-date'),fno:v('m-fno'),airline:v('m-airline'),dep:$('#m-dep').dataset.iata||'',arr:$('#m-arr').dataset.iata||'',depT:v('m-dept'),arrT:v('m-arrt'),plus:v('m-plus')});
+  var f=normItem({date:v('m-date'),fno:v('m-fno'),airline:v('m-airline'),dep:$('#m-dep').dataset.iata||'',arr:$('#m-arr').dataset.iata||'',depT:v('m-dept'),arrT:v('m-arrt'),plus:v('m-plus'),ac:v('m-ac')});
   var msg=!v('m-date')?'请选出发日期。':!f.fno?'请填航班号。':!$('#m-dep').dataset.iata?'请从列表里选出发机场。':!$('#m-arr').dataset.iata?'请从列表里选到达机场。':f.problem?f.problem+'。':'';
   err.textContent=msg; if(msg) return;
   f.depName=apDefaultName(f.dep); f.arrName=apDefaultName(f.arr);
   var b=$('#m-add'); b.disabled=true;
-  saveFlights([f],'manual').then(function(){ toast('已加入 '+f.date+' '+f.fno); ['m-fno','m-airline','m-dep','m-arr','m-dept','m-arrt'].forEach(function(id){ var x=$('#'+id); x.value=''; delete x.dataset.iata; }); $('#m-plus').value='0'; closeSheet(); },
+  saveFlights([f],'manual').then(function(){ toast('已加入 '+f.date+' '+f.fno); ['m-fno','m-airline','m-ac','m-dep','m-arr','m-dept','m-arrt'].forEach(function(id){ var x=$('#'+id); x.value=''; delete x.dataset.iata; }); $('#m-plus').value='0'; closeSheet(); },
     function(){ err.textContent='没能写入，请稍后再试。'; }).then(function(){ b.disabled=false; });
 }
 function exportCSV(){
   var q=function(s){ s=String(s==null?'':s); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
-  var rows=[['日期','航班号','航空公司','出发机场代码','出发机场','出发航站楼','起飞时间','到达机场代码','到达机场','到达航站楼','到达时间','到达跨天','里程公里','时长分钟']];
-  S.flights.forEach(function(f){ rows.push([f.date,f.fno,f.airline,f.dep,f.depName||apDefaultName(f.dep),f.depTerm,f.depT,f.arr,f.arrName||apDefaultName(f.arr),f.arrTerm,f.arrT,f.plus,Math.round(f.km),f.min]); });
+  var rows=[['日期','航班号','航空公司','出发机场代码','出发机场','出发航站楼','起飞时间','到达机场代码','到达机场','到达航站楼','到达时间','到达跨天','机型','里程公里','时长分钟']];
+  S.flights.forEach(function(f){ rows.push([f.date,f.fno,f.airline,f.dep,f.depName||apDefaultName(f.dep),f.depTerm,f.depT,f.arr,f.arrName||apDefaultName(f.arr),f.arrTerm,f.arrT,f.plus,f.ac,Math.round(f.km),f.min]); });
   saveFile('我的飞行记录.csv','\ufeff'+rows.map(function(r){ return r.map(q).join(','); }).join('\r\n'),'text/csv').then(function(ok){ if(ok) toast('已导出 '+S.flights.length+' 条'); },function(){ toast('没能导出，请稍后再试。'); });
 }
 
 function exportJSON(){
   var day=new Date().toISOString().slice(0,10);
-  var body={app:'flight-map',version:1,exported:new Date().toISOString(),flights:S.flights.map(function(f){ return {date:f.date,fno:f.fno,airline:f.airline,dep:f.dep,depName:f.depName,depTerm:f.depTerm,depT:f.depT,arr:f.arr,arrName:f.arrName,arrTerm:f.arrTerm,arrT:f.arrT,plus:f.plus}; })};
+  var body={app:'flight-map',version:1,exported:new Date().toISOString(),flights:S.flights.map(function(f){ return {date:f.date,fno:f.fno,airline:f.airline,dep:f.dep,depName:f.depName,depTerm:f.depTerm,depT:f.depT,arr:f.arr,arrName:f.arrName,arrTerm:f.arrTerm,arrT:f.arrT,plus:f.plus,ac:f.ac}; })};
   saveFile('飞行记录备份_'+day+'.json',JSON.stringify(body,null,1),'application/json').then(function(ok){ if(!ok) return; lsSet(KEY_BK,new Date().toISOString()); lsSet(KEY_DIRTY,null); renderBackupNote(); toast('已导出 '+S.flights.length+' 条备份'); },function(){ toast('没能导出，请稍后再试。'); });
 }
 /* ---------- wiring ---------- */
