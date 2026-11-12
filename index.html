@@ -90,6 +90,7 @@ h2{font-family:var(--title);font-weight:700;font-size:18px;letter-spacing:.06em}
 .ap.nolabel text{display:none}
 .ap.ghost .dot{stroke:var(--ink3);opacity:.6}
 .ap.dim{opacity:.18}
+.playing .route.ghost,.playing .ap.ghost{display:none}
 .chips{position:absolute;left:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 20px)}
 .chip{border:1px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:3px;padding:5px 10px;font-size:13px;line-height:1.2;min-height:30px}
 .legend{position:absolute;left:12px;bottom:10px;display:flex;align-items:center;gap:8px;font:500 12px var(--num);color:var(--ink2);letter-spacing:.02em;pointer-events:none}
@@ -97,7 +98,7 @@ h2{font-family:var(--title);font-weight:700;font-size:18px;letter-spacing:.06em}
 .focus{position:absolute;left:10px;right:10px;bottom:10px;background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--hot);border-radius:3px;padding:9px 10px 9px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .focus b{display:block;font-weight:600;font-size:15px;line-height:1.3}
 .focus span{display:block;font-size:13px;color:var(--ink2)}
-.playdate{position:absolute;right:12px;top:10px;text-align:right;pointer-events:none}
+.playdate{position:absolute;right:12px;top:10px;text-align:right;pointer-events:none;text-shadow:0 0 2px var(--sea),0 0 6px var(--sea),0 0 10px var(--sea)}
 .playdate b{display:block;font:600 30px/1 var(--num);letter-spacing:.01em}
 .playdate span{display:block;font-size:12px;color:var(--ink2);margin-top:3px}
 
@@ -111,7 +112,10 @@ h2{font-family:var(--title);font-weight:700;font-size:18px;letter-spacing:.06em}
 .yr.zero i{opacity:.25}
 .yr.on{color:var(--ink)}
 .yr.on i{background:var(--hot);opacity:1}
-.tl-note{display:flex;align-items:center;gap:10px;min-height:32px;padding:4px 16px 0;font-size:13px;color:var(--ink2)}
+.tl-foot{display:flex;align-items:center;flex-wrap:wrap;gap:4px 14px;padding:8px 16px 0}
+.tl-note{display:flex;align-items:center;gap:10px;min-height:32px;font-size:13px;color:var(--ink2)}
+.seg.sm{flex:none}
+.seg.sm button{min-height:30px;padding:4px 10px;font-size:12.5px}
 
 /* ---------- side ---------- */
 .notice{margin:10px 0 0;padding:10px 12px;border:1px solid var(--rule);border-left:3px solid var(--cool);background:var(--surface);border-radius:3px;font-size:14px}
@@ -141,7 +145,7 @@ h2{font-family:var(--title);font-weight:700;font-size:18px;letter-spacing:.06em}
 .seg{display:inline-flex;border:1px solid var(--ink);border-radius:3px;overflow:hidden}
 .seg button{border:0;background:transparent;padding:6px 12px;font-size:13px;font-weight:500;min-height:32px;color:var(--ink)}
 .seg button+button{border-left:1px solid var(--ink)}
-.seg button[aria-selected="true"]{background:var(--ink);color:var(--page)}
+.seg button[aria-selected="true"],.seg button[aria-pressed="true"]{background:var(--ink);color:var(--page)}
 .rk{display:grid;grid-template-columns:1fr auto;align-items:baseline;column-gap:10px;padding:7px 0 0;width:100%;border:0;background:none;text-align:left}
 .rk .lb{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rk .lb small{font:500 12.5px var(--num);color:var(--ink3);margin-left:6px;letter-spacing:.03em}
@@ -210,7 +214,7 @@ textarea{resize:vertical;min-height:92px;display:block}
   .left{position:sticky;top:env(safe-area-inset-top,0px);height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-self:start;border-right:1px solid var(--rule)}
   .map{flex:1;height:auto;border-top:0}
   .tl{padding-inline:24px}
-  .tl-note{padding:4px 24px 10px}
+  .tl-foot{padding:6px 24px 10px}
   .top{padding:26px 28px 6px}
   .side{padding:4px 28px 56px}
   h1{font-size:32px}
@@ -243,7 +247,13 @@ textarea{resize:vertical;min-height:92px;display:block}
       <button class="btn play" id="btn-play" disabled aria-label="按时间顺序回放全部航班"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><span>回放</span></button>
       <div class="years" id="years" role="group" aria-label="按年份筛选"></div>
     </div>
-    <p class="tl-note" id="tl-note"></p>
+    <div class="tl-foot">
+      <div class="seg sm" role="group" aria-label="回放时的视野" id="play-mode">
+        <button aria-pressed="true" data-mode="year">视野跟年份</button>
+        <button aria-pressed="false" data-mode="fixed">视野不变</button>
+      </div>
+      <p class="tl-note" id="tl-note"></p>
+    </div>
   </section>
 
   <main class="side">
@@ -439,7 +449,9 @@ function cityKey(f){ var a=apCity(f.dep),b=apCity(f.arr),fa=CITYF.get(a)||0,fb=C
 function durText(min){ if(!min) return ''; var h=Math.floor(min/60),m=min%60; return h+' 小时'+(m?' '+m+' 分':''); }
 
 /* ---------- state ---------- */
-var S={flights:[],loaded:false,year:null,focus:null,play:null,owner:false,editing:false,rankTab:'route',rankAll:false,fitted:false};
+function prefGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function prefSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+var S={flights:[],loaded:false,year:null,focus:null,play:null,owner:false,editing:false,rankTab:'route',rankAll:false,fitted:false,playMode:prefGet('flightmap.playMode')==='fixed'?'fixed':'year'};
 var db=null,ALL=null,VIEW=null;
 var KEY='flightmap.flights.v1',KEY_BK='flightmap.lastBackup',KEY_DIRTY='flightmap.dirty';
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
@@ -602,7 +614,7 @@ function renderMap(){
     g.select('text').text(d.id);
   });
   applyZoom(); declutter();
-  var lg=$('#legend'); lg.hidden=!view.n||!!S.focus||!!S.play; $('#chips').hidden=!!S.play;
+  var lg=$('#legend'); lg.hidden=!view.n||!!S.focus||!!S.play; $('#chips').hidden=!!S.play; $('#map').classList.toggle('playing',!!S.play&&S.playMode==='year');
   $('#lg-min').textContent='1 次'; $('#lg-max').textContent=maxN+' 次';
 }
 function declutter(){
@@ -621,17 +633,17 @@ function declutter(){
     if(ok){ placed.push(ok.box); d3.select(o.n).select('text').attr('x',ok.x).attr('y',ok.y).attr('text-anchor',ok.a); }
   });
 }
-function fitTo(ids,animate){
+function fitTransform(ids,padTop){
   var pts=ids.map(function(id){ var a=AP.get(id); return a?proj([a.lon,a.lat]):null; }).filter(Boolean);
-  var t;
-  if(!pts.length) t=d3.zoomIdentity;
-  else{
-    var xs=pts.map(function(p){ return p[0]; }),ys=pts.map(function(p){ return p[1]; });
-    var x0=Math.min.apply(null,xs),x1=Math.max.apply(null,xs),y0=Math.min.apply(null,ys),y1=Math.max.apply(null,ys);
-    var padL=Math.min(48,W*0.09),padR=Math.min(70,W*0.14),padT=54,padB=66;
-    var k=Math.max(0.9,Math.min(14,(W-padL-padR)/Math.max(x1-x0,1),(H-padT-padB)/Math.max(y1-y0,1)));
-    t=d3.zoomIdentity.translate((padL+W-padR)/2-k*(x0+x1)/2,(padT+H-padB)/2-k*(y0+y1)/2).scale(k);
-  }
+  if(!pts.length) return d3.zoomIdentity;
+  var xs=pts.map(function(p){ return p[0]; }),ys=pts.map(function(p){ return p[1]; });
+  var x0=Math.min.apply(null,xs),x1=Math.max.apply(null,xs),y0=Math.min.apply(null,ys),y1=Math.max.apply(null,ys);
+  var padL=Math.min(48,W*0.09),padR=Math.min(70,W*0.14),padT=padTop||54,padB=66;
+  var k=Math.max(0.9,Math.min(14,(W-padL-padR)/Math.max(x1-x0,1),(H-padT-padB)/Math.max(y1-y0,1)));
+  return d3.zoomIdentity.translate((padL+W-padR)/2-k*(x0+x1)/2,(padT+H-padB)/2-k*(y0+y1)/2).scale(k);
+}
+function fitTo(ids,animate,padTop){
+  var t=fitTransform(ids,padTop);
   if(animate&&!reduced) svg.transition().duration(650).call(zoom.transform,t); else svg.call(zoom.transform,t);
 }
 function renderChips(){
@@ -765,27 +777,60 @@ function renderAll(){ renderHead(); renderMap(); renderChips(); renderFocus(); r
 
 /* ---------- replay ---------- */
 function stopPlay(){ if(!S.play) return; clearTimeout(S.play.timer); S.play=null; gTr.selectAll('*').remove(); $('#playdate').hidden=true; recompute(); renderAll(); fitTo(Array.from(VIEW.aps.keys()),true); }
+function syncPlayMode(){ Array.prototype.forEach.call($('#play-mode').children,function(x){ x.setAttribute('aria-pressed',x.dataset.mode===S.playMode?'true':'false'); }); }
+function playCamera(){
+  if(!S.play) return;
+  if(S.playMode==='year'&&S.play.camIds) fitTo(S.play.camIds,true,84); else fitTo(Array.from(ALL.aps.keys()),true);
+}
 function startPlay(){
   if(S.play){ stopPlay(); return; }
   if(!S.flights.length) return;
-  S.year=null; S.focus=null; S.play={i:-1,timer:0};
-  fitTo(Array.from(ALL.aps.keys()),false);
-  var n=S.flights.length,stepMs=Math.max(45,Math.min(260,13000/n)),pd=$('#playdate'); pd.hidden=false;
+  S.year=null; S.focus=null; S.play={i:-1,timer:0,year:null,half:0,camIds:null};
+  var n=S.flights.length,pd=$('#playdate'),years=new Map(),fixedStep=Math.max(45,Math.min(260,13000/n)); pd.hidden=false;
+  pd.querySelector('b').textContent=''; pd.querySelector('span').textContent='';
+  S.flights.forEach(function(f){ var o=years.get(f.year); if(!o){ o={ids:new Set(),h:[new Set(),new Set()],n:0}; years.set(f.year,o); } o.ids.add(f.dep); o.ids.add(f.arr); o.n++;
+    var h=o.h[+f.date.slice(5,7)>6?1:0]; h.add(f.dep); h.add(f.arr); });
+  /* The camera normally frames a whole year. When the two halves of a year went to different far-away places,
+     so that each half on its own can be shown clearly larger, the year gets one framing per half instead. */
+  years.forEach(function(o){
+    o.cams=[Array.from(o.ids)];
+    if(o.h[0].size&&o.h[1].size){
+      var k0=fitTransform(o.cams[0],84).k,a=Array.from(o.h[0]),b=Array.from(o.h[1]);
+      if(fitTransform(a,84).k>=k0*1.3&&fitTransform(b,84).k>=k0*1.3) o.cams=[a,b];
+    }
+  });
+  if(S.playMode!=='year') fitTo(Array.from(ALL.aps.keys()),false);
+  VIEW=aggregate([]); renderMap(); renderTimeline(); renderStats(); renderRank();
   (function tick(){
     if(!S.play) return;
-    S.play.i++;
-    if(S.play.i>=n){ S.play.timer=setTimeout(stopPlay,900); return; }
-    var f=S.flights[S.play.i]; VIEW=aggregate(subset());
+    var next=S.play.i+1;
+    if(next>=n){ S.play.timer=setTimeout(stopPlay,1100); return; }
+    var f=S.flights[next],yr=years.get(f.year),follow=S.playMode==='year',half=yr.cams.length>1&&+f.date.slice(5,7)>6?1:0;
+    if(S.play.year!==f.year){
+      S.play.year=f.year; S.play.half=half; S.play.camIds=yr.cams[half];
+      if(follow){
+        /* a new year: move the map to that year's routes before drawing them */
+        pd.querySelector('b').textContent=f.year+' 年'; pd.querySelector('span').textContent='这一年飞了 '+yr.n+' 次';
+        fitTo(S.play.camIds,true,84);
+        S.play.timer=setTimeout(tick,reduced?300:720); return;
+      }
+    }else if(S.play.half!==half){
+      /* second half of a split year: only the map moves, the caption stays as it is */
+      S.play.half=half; S.play.camIds=yr.cams[half];
+      if(follow){ fitTo(S.play.camIds,true,84); S.play.timer=setTimeout(tick,reduced?300:760); return; }
+    }
+    S.play.i=next; VIEW=aggregate(subset());
     renderMap(); renderTimeline(); renderStats(); renderRank();
     pd.querySelector('b').textContent=f.date; pd.querySelector('span').textContent=f.fno+'  '+apName(f.dep)+' 飞 '+apName(f.arr);
-    var arc=ARCS.get(f.id);
+    var stepMs=follow?Math.max(70,Math.min(190,1200/yr.n)):fixedStep,arc=ARCS.get(f.id);
     if(arc&&!reduced){
       var p=gTr.append('path').attr('class','tracer').attr('stroke-width',2.6/T.k).attr('d',arc.d).node();
       var len=p.getTotalLength(); p.style.strokeDasharray=len; p.style.strokeDashoffset=len;
       var an=p.animate([{strokeDashoffset:len,opacity:1},{strokeDashoffset:0,opacity:1,offset:0.7},{strokeDashoffset:0,opacity:0}],{duration:Math.max(520,stepMs*5),easing:'ease-out'});
       an.onfinish=function(){ p.remove(); };
     }
-    S.play.timer=setTimeout(tick,stepMs);
+    var lastOfYear=next+1>=n||S.flights[next+1].year!==f.year;
+    S.play.timer=setTimeout(tick,stepMs+(follow&&lastOfYear?260:0));
   })();
 }
 
@@ -939,6 +984,8 @@ function exportJSON(){
 }
 /* ---------- wiring ---------- */
 $('#btn-play').addEventListener('click',startPlay);
+$('#play-mode').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b||b.dataset.mode===S.playMode) return; S.playMode=b.dataset.mode; prefSet('flightmap.playMode',S.playMode); syncPlayMode(); if(S.play){ renderMap(); playCamera(); } });
+syncPlayMode();
 $('#rank-tabs').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; S.rankTab=b.dataset.tab; S.rankAll=false;
   Array.prototype.forEach.call(this.children,function(x){ x.setAttribute('aria-selected',x===b?'true':'false'); }); renderRank(); });
 $('#rank-more').addEventListener('click',function(){ S.rankAll=!S.rankAll; renderRank(); });
